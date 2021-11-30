@@ -9,7 +9,6 @@ long int code_reader() {
   if ( (Serial1.available() > 0) && (!bufferRead) ) {
     bufferRead = 1;
     timer_Data = millis();
-    Serial.println("Detectado");
   }
   else if ( (bufferRead) && ( (millis() - timer_Data) >= wait_receiveData)  ) {
     bufferRead = 0;

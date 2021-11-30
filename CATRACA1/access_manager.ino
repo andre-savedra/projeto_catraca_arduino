@@ -1,5 +1,3 @@
-//#include "CATRACA3-Nova.ino"
-
 void task_accessManager()
 {
   codeRead = code_reader();
@@ -8,7 +6,7 @@ void task_accessManager()
   if ((codeRead != 0) && (!findThis))
   {
     findThis = codeRead;
-    Serial.println(codeRead);
+    //Serial.println(codeRead);
     lcd.clear();
   }
 
@@ -81,11 +79,11 @@ void task_accessManager()
       lcd.setCursor(0, 0);
       lcd.print("ACESSO LIBERADO");
     }
-
+    
     break;
 
   case STEP_CHECK_DB_DATETIME:
-    DB_response = get_DBresponse();
+      DB_response = get_DBresponse();
 
     if (DB_response == DB_ALLOWED)
     {
@@ -127,12 +125,7 @@ void task_accessManager()
     break;
 
   case STEP_ALLOWED:
-
-    if (solenoidLogic != NORMALLY_RELEASED)
-    {
-      solenoid = 1;
-    }
-
+       solenoid = 1;
     ok_Led = 1;
     errorLed = 0;
 
@@ -153,9 +146,6 @@ void task_accessManager()
       ok_Led = 0;
       errorLed = 0;
       step_AccessManager = STEP_REGISTER_DIRECTION;
-
-      flagDelayAllowed = true;
-      timerDelayAllowed = millis();
     }
 
     break;
@@ -173,32 +163,17 @@ void task_accessManager()
     break;
 
   case STEP_NOT_ALLOWED:
-    if ((millis() - timer_error_accessManager) >= error_time)
+          if ((millis() - timer_error_accessManager) >= error_time)
     {
       solenoid = 0;
       ok_Led = 0;
       errorLed = 0;
       step_AccessManager = STEP_INITIAL;
       set_DB_target(0);
-      reset_Sensors();
-      solenoidBlockedByMovement = false;
     }
     else
     {
-      if (solenoidBlockedByMovement == true)
-      {
-        lcd.setCursor(0, 0);
-        lcd.print("ACESSO BLOQUEADO");
-        lcd.setCursor(0, 1);
-        lcd.print("Cracha nao lido!");
-        solenoid = 1;
-      }
-      else
-      {
-        solenoid = 0;
-      }
-
-      
+      solenoid = 0;
       ok_Led = 0;
       errorLed = 1;
     }
@@ -206,26 +181,4 @@ void task_accessManager()
     break;
   }
   task_DBconnection();
-
-  //FOR DIFFERENT SOLENOIDS TYPE
-  if (solenoidLogic == NORMALLY_RELEASED)
-  {
-    if ((detectMovement() == true) && (step_AccessManager == STEP_STANDBY) && (solenoidBlockedByMovement == false) && (flagDelayAllowed == false))
-    {
-      step_AccessManager = STEP_NOT_ALLOWED;
-      solenoidBlockedByMovement = true;
-      timer_error_accessManager = millis();
-    }
-  }
-
-  if(flagDelayAllowed == true)
-  {
-    if( (millis() - timerDelayAllowed) > 2000)
-    {
-      flagDelayAllowed = false;
-    }
-
-  }
-
-  
 }

@@ -10,39 +10,23 @@
 /***********************************************/
 
 /******LIBRARIES:*********/
-#include <SPI.h>
 #include <Ethernet.h>
 #include <MySQL_Connection.h>
 #include <MySQL_Cursor.h>
+#include <SPI.h>
 #include <LiquidCrystal.h>
 
 /***ETHERTNET PARAMETERS****/
-byte ip[] = {192, 168, 10, 8};
-byte myDns[] = {192, 168, 10, 254};
-
-byte mac[] = {
-  0x00, 0xAA, 0xBB, 0xCC, 0xDE, 0x02
-};
-
-
+byte mac_addr[] = {0x00, 0xAA, 0xBD, 0xCC, 0xDE, 0x12};
+byte ip_addr[] = {192, 168, 10, 4};
 IPAddress server_addr(192, 168, 10, 10);
 EthernetClient client;
 String schoolName_1 = "Senai Campinas"; //LINHA1: MÁXIMO 16 CARACTERES E SEM ACENTUACAO
-String schoolName_2 = "Passe o Cracha..";  //LINHA2: MÁXIMO 16 CARACTERESES E SEM ACENTUACAO
-// String schoolName_2 = "Roberto Mange";  //LINHA2: MÁXIMO 16 CARACTERESES E SEM ACENTUACAO
+String schoolName_2 = "Roberto Mange"; //LINHA2: MÁXIMO 16 CARACTERESES E SEM ACENTUACAO
 
 /***ACCESS MANAGER VARIABLES:****/
-
-#define NORMALLY_BLOCKED 0 //Solenóide fica normalmente bloqueada, somente acionada para liberar o acesso
-#define NORMALLY_RELEASED 1 //Solenóide fica normalmente liberada, somente acionada para bloquear o acesso
-boolean solenoidLogic = NORMALLY_RELEASED; //MUDE AQUI PARA ALTERAR LÓGICA DA SOLENÓIDE DA CATRACA!!!!
-boolean solenoidBlockedByMovement = false;
-boolean oldSensor1 = false, oldSensor2 = false;
-
-#define SENSOR_HOME_POSITION 1 // 0 se sensor em home position está desativado e 1 se está ativado
-                               // catraca antiga: 0, catraca nova: 1
 #define scan_task_accessManager 10
-#define error_time 3000
+#define error_time 5000
 
 #define solenoidPin 53 //PIN
 #define errorLedPin 49 //PIN
@@ -127,9 +111,6 @@ byte step_DBQuery = 0, statusDB = 0, stepInsert = 0, step_DB_Configs = 0;
 long int registertToFind = 0;
 boolean bufferRelease = false;
 
-unsigned long timerDelayAllowed = 0;
-bool flagDelayAllowed = false;
-
 struct CONFIGS
 {
   bool release;
@@ -200,15 +181,10 @@ void (*funcReset)() = 0;
 
 void setup()
 {
-  delay(1000);
+  delay(2000);
   mode = JUST_CHECK_REGISTER_MODE;
   /***SERIAL INITIALIZATION:****/
   Serial.begin(115200);
-
-  while (!Serial) {
-    ; // wait for serial port to connect. Needed for native USB port only
-  }
-
   Serial.println("Iniciando...");
 
   /***IHM INITIALIZATION:****/
@@ -219,31 +195,9 @@ void setup()
   lcd.print("servidor...");
 
   /***DATABASE INITIALIZATION:****/
-
-  Serial.println("Initialize Ethernet with DHCP:");
-  if (Ethernet.begin(mac) == 0) {
-    Serial.println("Failed to configure Ethernet using DHCP");
-    if (Ethernet.hardwareStatus() == EthernetNoHardware) {
-      Serial.println("Ethernet shield was not found.  Sorry, can't run without hardware. :(");
-    } else if (Ethernet.linkStatus() == LinkOFF) {
-      Serial.println("Ethernet cable is not connected.");
-    }
-    // no point in carrying on, so do nothing forevermore:
-    while (true) {
-      delay(1);
-    }
-  }
-  else {
-    Ethernet.begin(mac, ip, myDns);
-    delay(2000);
-    // print your local IP address:
-    Serial.print("My IP address: ");
-    Serial.println(Ethernet.localIP());
-
-  }
-
+  Ethernet.begin(mac_addr, ip_addr);
   boolean serverOK = 0;
-  Serial.print(Ethernet.localIP());
+
   serverOK = function_DB_connect();
   delay(500);
   if (!serverOK)
@@ -336,9 +290,6 @@ void setup()
   //Serial.println(myConfig.release);
   //Serial.println(myConfig.timeControl);
   //Serial.println(myConfig.dateControl);
-
-   oldSensor1 = sensor1;
-   oldSensor2 = sensor2;
 } //end setup
 
 void loop()
@@ -354,53 +305,40 @@ void loop()
     TIME_REFRESH = 1200000; //20minutos
   }
 
-  if (myConfig.release == true)
-  {
-
-    if (bufferRelease == false)
-    {
+  if (myConfig.release == true) {
+    
+    if(bufferRelease == false){
       lcd.clear();
     }
 
     bufferRelease = true;
   }
 
-  if (bufferRelease == true)
-  { //release access
+  if (bufferRelease == true) { //release access
     solenoid = 1;
     TIME_REFRESH = 60000; //1minuto
 
-    if (myConfig.release == false)
-    {
+    if (myConfig.release == false) {
       bufferRelease = false;
 
       step_AccessManager = STEP_INITIAL;
       step_DBQuery = DB_STEP_INITIAL;
     }
+
   }
 
-
-  //FOR DIFFERENT SOLENOIDS TYPE
-  if (solenoidLogic == NORMALLY_RELEASED)
-  {
-    digitalWrite(solenoidPin, solenoid);
-  }
-  else
-  {
-    digitalWrite(solenoidPin, !solenoid);
-  }
-
+  digitalWrite(solenoidPin, !solenoid);
   digitalWrite(errorLedPin, errorLed);
   digitalWrite(ok_LedPin, ok_Led);
 
   sensor1 = !digitalRead(sensor1Pin);
   sensor2 = !digitalRead(sensor2Pin);
 
-  Serial.print("Sensor1: ");
+  /*Serial.print("Sensor1: ");
   Serial.println(sensor1);
 
   Serial.print("Sensor2: ");
-  Serial.println(sensor2);
+  Serial.println(sensor2);*/
 
   //refresh configurations
   if ((millis() - timerRefreshConfigs) > TIME_REFRESH)
@@ -455,11 +393,9 @@ void loop()
     timerRefreshConfigs = millis();
 
   } //end refresh configurations
-  else
-  {
-    if (myConfig.release == true)
-    {
-
+  else{
+    if(myConfig.release == true){
+      
       lcd.setCursor(0, 0);
       lcd.print("Catraca        ");
       lcd.setCursor(0, 1);
